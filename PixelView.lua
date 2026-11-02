@@ -9,7 +9,7 @@
 --   local PixelView = require("pixel_importer/PixelView")
 --   local view = PixelView.New({
 --       parent = script.object.parent,
---       templateIndex = 1,     -- a square ImageControl template
+--       templateIndex = 1,     -- an ImageControl template (any size; it is resized to one dot)
 --       x = 800, y = 450,      -- position of the top-left dot (anchoredPositionX / Y)
 --       spacing = 4,           -- distance between neighboring dots
 --       step = 1,              -- 2 = use every 2nd dot (half the resolution, a quarter of the ImageControls)
@@ -172,7 +172,8 @@ end
 --   spacing                 distance between dots (default 4)
 --   step                    1 = every dot, 2 = every 2nd dot, ... (default 1)
 --   merge                   share ImageControls between same-colored neighbors (default false)
---   dotWidth                width of one dot. Default: read from the template
+--   dotSize                 width and height of one dot (default: the same as spacing, so there are no gaps).
+--                           The ImageControls are resized to this, so the template's own size does not matter.
 --   pivotX                  the template's horizontal pivot: 0 = left, 0.5 = center, 1 = right (default 0.5)
 function PixelView.New(options)
     -- Stop here with a clear message if something required is missing.
@@ -197,9 +198,17 @@ function PixelView.New(options)
     return setmetatable(view, PixelView)
 end
 
--- The step setting of a view (1 if not given). Used only inside this file.
+-- Settings with their defaults. Used only inside this file.
 local function StepOf(view)
     return view.options.step or 1
+end
+
+local function SpacingOf(o)
+    return o.spacing or 4
+end
+
+local function DotSizeOf(o)
+    return o.dotSize or SpacingOf(o)
 end
 
 -- How many ImageControls this picture needs with this view's settings.
@@ -219,9 +228,12 @@ function PixelView:Prepare(art)
     end
 end
 
+-- Create one ImageControl from the template, hidden, with the height of one dot.
+-- (The width is set by Show, because a merged piece is wider.)
 local function NewImage(o)
     local image = game.InstantiateClientUIControl(o.templateIndex, o.parent)
     image:SetActive(false)
+    image.sizeDeltaY = DotSizeOf(o)
     return image
 end
 
@@ -254,18 +266,14 @@ function PixelView:Show(art)
         return
     end
     local o = self.options
-    local spacing = o.spacing or 4
+    local spacing = SpacingOf(o)
+    local dotSize = DotSizeOf(o)
     local pivotX = o.pivotX or 0.5
     local pieces = Pieces(art, StepOf(self), o.merge)
 
     -- Create any that are still missing (all at once, so this can be slow; see Grow)
     while #self.images < #pieces do
         table.insert(self.images, NewImage(o))
-    end
-    local dotWidth = o.dotWidth
-    if o.merge and dotWidth == nil and #self.images > 0 then
-        dotWidth = self.images[1].sizeDeltaX
-        o.dotWidth = dotWidth
     end
 
     local x = o.x or 0
@@ -275,13 +283,12 @@ function PixelView:Show(art)
         -- A wide piece grows around its pivot, so move it right by pivotX of the extra width
         image.anchoredPositionX = x + (piece.col + pivotX * (piece.length - 1)) * spacing
         image.anchoredPositionY = y - piece.row * spacing   -- larger Y is higher, so lower rows get smaller Y
-        if o.merge then
-            -- Covers its dots and the gaps between them
-            local width = dotWidth + (piece.length - 1) * spacing
-            if self.widths[i] ~= width then
-                image.sizeDeltaX = width
-                self.widths[i] = width
-            end
+        -- One dot wide, or for a merged piece, its dots and the gaps between them.
+        -- Written only when it changes, so showing another picture costs little.
+        local width = dotSize + (piece.length - 1) * spacing
+        if self.widths[i] ~= width then
+            image.sizeDeltaX = width
+            self.widths[i] = width
         end
         if self.colors[i] ~= piece.color then
             image.imageColor = ToColorValue(piece.color)
