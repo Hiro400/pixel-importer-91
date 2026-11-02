@@ -16,6 +16,8 @@ Pixel Importer 91 は2つの部品からできています。
 
 **変換ツールを開く：** [https://hiro400.github.io/pixel-importer-91/](https://hiro400.github.io/pixel-importer-91/)
 
+**使い方の動画（英語）：** [https://youtu.be/Akh2coZszas](https://youtu.be/Akh2coZszas)
+
 ![変換ツール](examples/screenshot.png)
 
 ![ゲームの中で見本の絵を表示したところ](examples/in-game.png)

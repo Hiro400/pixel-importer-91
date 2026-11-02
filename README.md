@@ -16,6 +16,8 @@ are safe to use that way. So a picture can have up to 91 colors, and the data st
 
 **Open the converter:** [https://hiro400.github.io/pixel-importer-91/](https://hiro400.github.io/pixel-importer-91/)
 
+**Video tutorial:** [https://youtu.be/Akh2coZszas](https://youtu.be/Akh2coZszas)
+
 ![The converter](examples/screenshot.png)
 
 ![The sample picture shown in the game](examples/in-game.png)
