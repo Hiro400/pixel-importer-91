@@ -71,7 +71,7 @@ local PixelView = require("pixel_importer/PixelView")
 local Images = require("mygame/images/Index")
 
 local view = PixelView.New({
-    parent = script.object.parent,
+    parent = script.object,
     templateIndex = 1,   -- ImageControl のテンプレート
     x = 200,
     y = 200,

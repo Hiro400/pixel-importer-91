@@ -12,7 +12,7 @@ local total = 0
 
 function OnStart()
     view = PixelView.New({
-        parent = script.object.parent,
+        parent = script.object,
         templateIndex = TEMPLATE_INDEX,
         x = 200,
         y = 200,

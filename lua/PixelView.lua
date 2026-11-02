@@ -8,7 +8,7 @@
 -- Usage:
 --   local PixelView = require("pixel_importer/PixelView")
 --   local view = PixelView.New({
---       parent = script.object.parent,
+--       parent = script.object,
 --       templateIndex = 1,     -- an ImageControl template (any size; it is resized to one dot)
 --       x = 200, y = 200,      -- position of the top-left dot (anchoredPositionX / Y)
 --       dotSize = 4,           -- size of one dot (dots are placed this far apart)
