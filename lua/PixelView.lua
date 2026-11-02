@@ -10,7 +10,7 @@
 --   local view = PixelView.New({
 --       parent = script.object.parent,
 --       templateIndex = 1,     -- an ImageControl template (any size; it is resized to one dot)
---       x = 800, y = 450,      -- position of the top-left dot (anchoredPositionX / Y)
+--       x = 200, y = 200,      -- position of the top-left dot (anchoredPositionX / Y)
 --       dotSize = 4,           -- size of one dot (dots are placed this far apart)
 --       step = 1,              -- 2 = use every 2nd dot (half the resolution, a quarter of the ImageControls)
 --   })

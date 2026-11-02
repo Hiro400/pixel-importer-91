@@ -72,8 +72,8 @@ local Images = require("mygame/images/Index")
 local view = PixelView.New({
     parent = script.object.parent,
     templateIndex = 1,   -- your ImageControl template
-    x = 800,
-    y = 450,
+    x = 200,
+    y = 200,
     dotSize = 4,
 })
 

@@ -14,8 +14,8 @@ function OnStart()
     view = PixelView.New({
         parent = script.object.parent,
         templateIndex = TEMPLATE_INDEX,
-        x = 800,
-        y = 450,
+        x = 200,
+        y = 200,
         dotSize = 4,
         step = 1,
     })
