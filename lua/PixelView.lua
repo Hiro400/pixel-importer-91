@@ -2,18 +2,17 @@
 -- Shows pixel art made by Pixel Importer 91, by placing square ImageControls side by side.
 --
 -- One ImageControl is used per dot (transparent dots are skipped).
--- With merge = true, dots of the same color that touch horizontally share one wide ImageControl.
+-- Dots of the same color that touch horizontally share one wide ImageControl (merge, on by default).
 -- ImageControls are created from a template and reused, so their number never keeps growing.
 --
 -- Usage:
 --   local PixelView = require("pixel_importer/PixelView")
 --   local view = PixelView.New({
 --       parent = script.object.parent,
---       templateIndex = 1,     -- a square ImageControl template
+--       templateIndex = 1,     -- an ImageControl template (any size; it is resized to one dot)
 --       x = 800, y = 450,      -- position of the top-left dot (anchoredPositionX / Y)
---       spacing = 4,           -- distance between neighboring dots
+--       dotSize = 4,           -- size of one dot (dots are placed this far apart)
 --       step = 1,              -- 2 = use every 2nd dot (half the resolution, a quarter of the ImageControls)
---       merge = true,          -- share one ImageControl between same-colored dots in a row
 --   })
 --   view:Show(art)             -- show a picture (does nothing if it is already shown)
 --   view:Clear()               -- hide it
@@ -169,12 +168,27 @@ end
 -- options:
 --   parent, templateIndex   where to create ImageControls, and from which template (required)
 --   x, y                    position of the top-left dot (default 0, 0)
---   spacing                 distance between dots (default 4)
+--   dotSize                 size of one dot; dots are placed this far apart (default 4)
 --   step                    1 = every dot, 2 = every 2nd dot, ... (default 1)
---   merge                   share ImageControls between same-colored neighbors (default false)
---   dotWidth                width of one dot. Default: read from the template
+--   merge                   share ImageControls between same-colored neighbors (default true; false turns it off)
+--   gap                     space left between neighboring dots (default 0).
+--                           The ImageControls are resized to dotSize - gap, so the template's own size does not matter.
 --   pivotX                  the template's horizontal pivot: 0 = left, 0.5 = center, 1 = right (default 0.5)
 function PixelView.New(options)
+    -- Stop here with a clear message if something required is missing.
+    -- (error level 2 points the message at the line that called New.)
+    if type(options) ~= "table" then
+        error("PixelView: New needs a table, like PixelView.New({ parent = ..., templateIndex = ... })", 2)
+    end
+    if options.parent == nil then
+        error("PixelView: parent is required in PixelView.New({ ... })", 2)
+    end
+    if options.templateIndex == nil then
+        error("PixelView: templateIndex is required in PixelView.New({ ... })", 2)
+    end
+    if (options.gap or 0) >= (options.dotSize or 4) then
+        error("PixelView: gap must be smaller than dotSize", 2)
+    end
     local view = {
         options = options,
         images = {},       -- created ImageControls (reused)
@@ -186,9 +200,22 @@ function PixelView.New(options)
     return setmetatable(view, PixelView)
 end
 
--- The step setting of a view (1 if not given). Used only inside this file.
+-- Settings with their defaults. Used only inside this file.
 local function StepOf(view)
     return view.options.step or 1
+end
+
+local function MergeOf(o)
+    return o.merge ~= false   -- on unless it is set to false
+end
+
+local function DotSizeOf(o)
+    return o.dotSize or 4
+end
+
+-- The size of the ImageControl for one dot: the dot minus the gap around it
+local function InnerSizeOf(o)
+    return DotSizeOf(o) - (o.gap or 0)
 end
 
 -- How many ImageControls this picture needs with this view's settings.
@@ -197,20 +224,23 @@ function PixelView:Count(art)
     if art == nil then
         return 0   -- like Show(nil), a missing picture needs nothing
     end
-    return #Pieces(art, StepOf(self), self.options.merge)
+    return #Pieces(art, StepOf(self), MergeOf(self.options))
 end
 
 -- Make the list of pieces now, so the first Show does less work.
 -- Count does the same, so this is needed only when Count is not used.
 function PixelView:Prepare(art)
     if art ~= nil then
-        Pieces(art, StepOf(self), self.options.merge)
+        Pieces(art, StepOf(self), MergeOf(self.options))
     end
 end
 
+-- Create one ImageControl from the template, hidden, with the height of one dot.
+-- (The width is set by Show, because a merged piece is wider.)
 local function NewImage(o)
     local image = game.InstantiateClientUIControl(o.templateIndex, o.parent)
     image:SetActive(false)
+    image.sizeDeltaY = InnerSizeOf(o)
     return image
 end
 
@@ -243,18 +273,14 @@ function PixelView:Show(art)
         return
     end
     local o = self.options
-    local spacing = o.spacing or 4
+    local dotSize = DotSizeOf(o)
+    local innerSize = InnerSizeOf(o)
     local pivotX = o.pivotX or 0.5
-    local pieces = Pieces(art, StepOf(self), o.merge)
+    local pieces = Pieces(art, StepOf(self), MergeOf(o))
 
     -- Create any that are still missing (all at once, so this can be slow; see Grow)
     while #self.images < #pieces do
         table.insert(self.images, NewImage(o))
-    end
-    local dotWidth = o.dotWidth
-    if o.merge and dotWidth == nil and #self.images > 0 then
-        dotWidth = self.images[1].sizeDeltaX
-        o.dotWidth = dotWidth
     end
 
     local x = o.x or 0
@@ -262,15 +288,14 @@ function PixelView:Show(art)
     for i, piece in ipairs(pieces) do
         local image = self.images[i]
         -- A wide piece grows around its pivot, so move it right by pivotX of the extra width
-        image.anchoredPositionX = x + (piece.col + pivotX * (piece.length - 1)) * spacing
-        image.anchoredPositionY = y - piece.row * spacing   -- larger Y is higher, so lower rows get smaller Y
-        if o.merge then
-            -- Covers its dots and the gaps between them
-            local width = dotWidth + (piece.length - 1) * spacing
-            if self.widths[i] ~= width then
-                image.sizeDeltaX = width
-                self.widths[i] = width
-            end
+        image.anchoredPositionX = x + (piece.col + pivotX * (piece.length - 1)) * dotSize
+        image.anchoredPositionY = y - piece.row * dotSize   -- larger Y is higher, so lower rows get smaller Y
+        -- One dot wide, or for a merged piece, its dots and the gaps between them.
+        -- Written only when it changes, so showing another picture costs little.
+        local width = innerSize + (piece.length - 1) * dotSize
+        if self.widths[i] ~= width then
+            image.sizeDeltaX = width
+            self.widths[i] = width
         end
         if self.colors[i] ~= piece.color then
             image.imageColor = ToColorValue(piece.color)

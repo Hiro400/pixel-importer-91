@@ -4,7 +4,7 @@
 local PixelView = require("pixel_importer/PixelView")   -- CHANGE: the path where you put PixelView.lua
 local sample = require("examples/sample")              -- CHANGE: the path of a .lua made by Pixel Importer 91
 
-local TEMPLATE_INDEX = 1                               -- CHANGE: the index of your square ImageControl template
+local TEMPLATE_INDEX = 1                               -- CHANGE: the index of your ImageControl template
 local PER_FRAME = 300                                  -- ImageControls created per frame (lower it if the game stutters)
 
 local view = nil
@@ -16,9 +16,8 @@ function OnStart()
         templateIndex = TEMPLATE_INDEX,
         x = 800,
         y = 450,
-        spacing = 4,
+        dotSize = 4,
         step = 1,
-        merge = true,
     })
     -- The largest number of ImageControls any of your pictures needs.
     -- Pixel Importer 91 shows this number ("Largest: ... ImageControls").

@@ -20,7 +20,7 @@ are safe to use that way. So a picture can have up to 91 colors, and the data st
 
 ![The sample picture shown in the game](examples/in-game.png)
 
-*The sample picture in the game (16 × 16 dots, `merge` on: 69 ImageControls).*
+*The sample picture in the game (16 × 16 dots, 69 ImageControls).*
 
 ## Features
 
@@ -30,7 +30,8 @@ are safe to use that way. So a picture can have up to 91 colors, and the data st
 - Reduces the colors to 91 or fewer when needed, keeping small but important colors such as eye colors.
 - Converts many files at once and makes `Index.lua`, so all pictures can be loaded with one `require`.
 - Shows how the picture will look in the game, and how many ImageControls it needs.
-- `merge`: same-colored dots next to each other in a row share one ImageControl. This often cuts the number of ImageControls by more than half.
+- **Merging** (on by default): same-colored dots next to each other in a row share one ImageControl.
+  This often cuts the number of ImageControls, and the time to show a picture, by about half.
 - **Compression** (on by default): repeated dots are written shorter, so the `.lua` files are often less than half the size.
   PixelView expands them by itself.
 - `Grow`: creates the ImageControls a few at a time before they are needed, so showing the first picture does not freeze the game.
@@ -58,8 +59,9 @@ are safe to use that way. So a picture can have up to 91 colors, and the data st
 
 ### 3. Make a template
 
-Make one **square ImageControl** in the UI editor and save it as a template. Its size is the size of one dot.
-For pictures without gaps, make its width equal to `spacing` (below).
+Make one **ImageControl** in the UI editor and save it as a template. Its size does not matter:
+PixelView resizes each ImageControl to the size of one dot (`dotSize`, below).
+Leave its pivot in the center.
 
 ### 4. Show the picture
 
@@ -69,11 +71,10 @@ local Images = require("mygame/images/Index")
 
 local view = PixelView.New({
     parent = script.object.parent,
-    templateIndex = 1,   -- your square ImageControl template
+    templateIndex = 1,   -- your ImageControl template
     x = 800,
     y = 450,
-    spacing = 4,
-    merge = true,
+    dotSize = 4,
 })
 
 view:Show(Images["sample"])
@@ -104,18 +105,18 @@ Options of `PixelView.New`:
 | Option | Default | Meaning |
 | --- | --- | --- |
 | `parent` | (required) | Where the ImageControls are created. |
-| `templateIndex` | (required) | The square ImageControl template. |
+| `templateIndex` | (required) | The ImageControl template (any size). |
 | `x`, `y` | `0`, `0` | Position of the top-left dot (`anchoredPositionX` / `Y`). |
-| `spacing` | `4` | Distance between neighboring dots. |
+| `dotSize` | `4` | Size of one dot. Dots are placed this far apart. |
 | `step` | `1` | `2` uses every 2nd dot: half the width and height, a quarter of the ImageControls. |
-| `merge` | `false` | Same-colored dots next to each other in a row share one wide ImageControl. |
-| `dotWidth` | template's width | Width of one dot. Only used with `merge`. |
+| `merge` | `true` | Same-colored dots next to each other in a row share one wide ImageControl. `false` turns it off. |
+| `gap` | `0` | Space left between neighboring dots. Must be smaller than `dotSize`. |
 | `pivotX` | `0.5` | The template's horizontal pivot (0 = left, 0.5 = center, 1 = right). Only used with `merge`. |
 
 ## Choosing the settings
 
-**How many ImageControls?** Each visible dot needs one ImageControl (fewer with `merge`).
-A 128×144 picture with no transparent dots needs 18,432 without `merge`.
+**How many ImageControls?** Without merging, each visible dot needs one ImageControl:
+a 128×144 picture with no transparent dots needs 18,432. Merging (the default) needs far fewer.
 The converter shows the number for each picture, and the largest one.
 
 **`Grow`.** Creating thousands of ImageControls at once takes time. Call `Grow` once per frame
@@ -123,9 +124,11 @@ The converter shows the number for each picture, and the largest one.
 After that, `Show` only moves and colors ImageControls that already exist.
 If the game stutters while growing, use a smaller `count`.
 
-**`merge`.** A wide ImageControl also covers the gaps between its dots.
-If your template is smaller than `spacing` (so you can see gaps between dots), `merge` changes the look.
-Use it when the template's width equals `spacing`.
+**`merge`.** In a test with a 128×144 portrait, merging cut the ImageControls from 18,432 to 8,607,
+and the time of `Show` from about 0.32 s to 0.16 s.
+A wide ImageControl also covers the gaps between its dots.
+With a `gap`, `merge` fills the gaps inside each merged piece and changes the look.
+With the default (`gap = 0`), the look does not change.
 
 **One view per place.** Each view creates its own ImageControls.
 If two screens are never shown at the same time, they can share one view.
@@ -168,7 +171,7 @@ and all 91 colors can still be used.
 - **At most 91 colors per picture.** Each color is one character, and only 91 printable ASCII characters
   are safe in a Lua string (`.`, `"`, `\` and space are not used). Pictures with more colors are reduced automatically.
 - **No half transparency.** A dot is either drawn or transparent (set the threshold in the converter).
-- **Large pictures need many ImageControls.** Use `merge`, `step` and `Grow`.
+- **Large pictures need many ImageControls.** Keep merging on, and use `Grow` (and `step` if needed).
 
 ## How it works
 
