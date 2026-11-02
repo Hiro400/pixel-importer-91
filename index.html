@@ -1,0 +1,1165 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!--
+  Safety: this rule tells the browser that the page may not load or send anything over the network.
+  Only the code written in this file runs. Images stay on your computer.
+-->
+<meta http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src blob: data:">
+<title>Pixel Importer 91</title>
+<style>
+  :root {
+    --bg: #f6f5f2; --panel: #ffffff; --text: #1f2328; --muted: #656d76;
+    --line: #d8d6d0; --accent: #2f6f5e; --accent-text: #ffffff; --error: #b42318;
+    --selected: #e6f0ec;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #17181b; --panel: #212328; --text: #e8e8e6; --muted: #9aa0a6;
+      --line: #3a3d44; --accent: #6cc3a6; --accent-text: #10221c; --error: #ff8a7a;
+      --selected: #24342f;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.55 system-ui, -apple-system, "Segoe UI", "Hiragino Sans", "Yu Gothic UI", sans-serif;
+  }
+  main { max-width: 1000px; margin: 0 auto; padding: 24px 16px 48px; }
+  header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  h2 { font-size: 14px; margin: 0 0 10px; color: var(--muted); font-weight: 600; }
+  .sub { color: var(--muted); margin: 0 0 20px; }
+  .lang { display: flex; gap: 4px; flex-shrink: 0; }
+  .lang button { padding: 4px 10px; font-size: 13px; }
+  .panel {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+    padding: 16px; margin-bottom: 16px;
+  }
+  #drop {
+    border: 2px dashed var(--line); border-radius: 10px; padding: 28px 16px;
+    text-align: center; cursor: pointer; color: var(--muted);
+  }
+  #drop.over { border-color: var(--accent); color: var(--text); }
+  .settings { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px 20px; }
+  .settings + h2, .hint + h2 { margin-top: 18px; }
+  label { display: block; font-size: 13px; color: var(--muted); }
+  label.check { display: flex; align-items: center; gap: 8px; color: var(--text); font-size: 14px; }
+  input[type=number], input[type=text], select {
+    width: 100%; margin-top: 4px; padding: 6px 8px; font: inherit; color: var(--text);
+    background: var(--bg); border: 1px solid var(--line); border-radius: 6px;
+  }
+  .hint { font-size: 13px; color: var(--muted); margin: 8px 0 0; }
+  .table-box { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th { font-weight: 600; color: var(--muted); font-size: 13px; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  tbody tr { cursor: pointer; }
+  tbody tr.selected { background: var(--selected); }
+  td.error { color: var(--error); white-space: normal; }
+  .remove { padding: 0 8px; font-size: 13px; }
+  .views { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 640px) { .views { grid-template-columns: 1fr; } }
+  .view { min-width: 0; }
+  .view-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+  .canvas-box {
+    overflow: auto; max-height: 440px; border-radius: 6px;
+    background: repeating-conic-gradient(#8884 0 25%, transparent 0 50%) 0 0 / 16px 16px;
+  }
+  canvas { display: block; image-rendering: pixelated; max-width: 100%; height: auto; }
+  #stats { margin: 12px 0 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 6px 20px; }
+  #stats b { font-variant-numeric: tabular-nums; }
+  #message { margin: 0; }
+  #message:not(:empty) { margin-top: 8px; }
+  #message.error { color: var(--error); }
+  .buttons { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+  button {
+    font: inherit; padding: 8px 16px; border-radius: 6px; cursor: pointer;
+    border: 1px solid var(--accent); background: var(--accent); color: var(--accent-text);
+  }
+  button.secondary { background: transparent; color: var(--accent); }
+  button:disabled { opacity: 0.4; cursor: default; }
+  textarea {
+    width: 100%; height: 180px; margin-top: 12px; font: 12px/1.4 ui-monospace, Consolas, monospace;
+    color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 8px;
+  }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div>
+      <h1>Pixel Importer 91</h1>
+      <p class="sub" data-i18n="subtitle"></p>
+    </div>
+    <div class="lang">
+      <button id="lang-en" class="secondary">English</button>
+      <button id="lang-ja" class="secondary">日本語</button>
+    </div>
+  </header>
+
+  <section class="panel">
+    <div id="drop"><span data-i18n="drop"></span>
+      <input id="file" type="file" accept="image/png" multiple hidden>
+    </div>
+    <p id="message"></p>
+  </section>
+
+  <section class="panel">
+    <h2 data-i18n="stageResize"></h2>
+    <div class="settings">
+      <label><span data-i18n="maxWidth"></span>
+        <input id="maxWidth" type="number" min="0" value="0">
+      </label>
+      <label><span data-i18n="maxHeight"></span>
+        <input id="maxHeight" type="number" min="0" value="0">
+      </label>
+      <label><span data-i18n="resizeMethod"></span>
+        <select id="method">
+          <option value="smooth" data-i18n="methodSmooth"></option>
+          <option value="sharp" data-i18n="methodSharp"></option>
+        </select>
+      </label>
+    </div>
+    <h2 data-i18n="stageColors"></h2>
+    <div class="settings">
+      <label><span data-i18n="maxColors"></span>
+        <input id="maxColors" type="number" min="1" max="91" value="91">
+      </label>
+      <label><span data-i18n="alpha"></span>
+        <input id="alpha" type="number" min="0" max="255" value="128">
+      </label>
+    </div>
+    <h2 data-i18n="stageLua"></h2>
+    <div class="settings">
+      <label><span data-i18n="folder"></span>
+        <input id="folder" type="text" value="images">
+      </label>
+      <label class="check"><input id="compress" type="checkbox" checked> <span data-i18n="compress"></span></label>
+    </div>
+    <p class="hint" data-i18n="folderHint"></p>
+    <h2 data-i18n="gameSettings"></h2>
+    <div class="settings">
+      <label><span data-i18n="step"></span>
+        <input id="step" type="number" min="1" value="1">
+      </label>
+      <label class="check"><input id="merge" type="checkbox" checked> <span data-i18n="merge"></span></label>
+    </div>
+    <p class="hint" data-i18n="gameSettingsHint"></p>
+  </section>
+
+  <section class="panel" id="filesPanel" hidden>
+    <h2 data-i18n="files"></h2>
+    <div class="table-box">
+      <table>
+        <thead><tr>
+          <th data-i18n="colName"></th>
+          <th class="num" data-i18n="colSize"></th>
+          <th class="num" data-i18n="colColors"></th>
+          <th class="num" data-i18n="colControls"></th>
+          <th></th>
+        </tr></thead>
+        <tbody id="fileRows"></tbody>
+      </table>
+    </div>
+    <p class="hint" id="growHint"></p>
+    <div class="buttons">
+      <button id="downloadZip" disabled data-i18n="downloadZip"></button>
+    </div>
+  </section>
+
+  <section class="panel" id="resultPanel" hidden>
+    <label><span data-i18n="name"></span>
+      <input id="name" type="text">
+    </label>
+    <div class="views" style="margin-top: 16px">
+      <div class="view">
+        <div class="view-head"><h2 data-i18n="original"></h2></div>
+        <div class="canvas-box"><canvas id="original"></canvas></div>
+      </div>
+      <div class="view">
+        <div class="view-head">
+          <h2 data-i18n="result"></h2>
+          <label class="check"><input id="outline" type="checkbox"> <span data-i18n="outline"></span></label>
+        </div>
+        <div class="canvas-box"><canvas id="preview"></canvas></div>
+      </div>
+    </div>
+    <ul id="stats"></ul>
+    <div class="buttons">
+      <button id="download" disabled data-i18n="downloadLua"></button>
+      <button id="copy" class="secondary" disabled data-i18n="copy"></button>
+    </div>
+    <textarea id="output" readonly></textarea>
+  </section>
+</main>
+
+<script>
+"use strict";
+
+// ===== Words shown on the page (English and Japanese) =====
+
+const TEXT = {
+  en: {
+    subtitle: "Turn PNG images into pixel-art Lua data for Miliastra Wonderland. Everything runs in your browser. Your images are never uploaded.",
+    drop: "Drop PNG files here, or click to choose (you can choose several)",
+    stageResize: "1. Resize",
+    stageColors: "2. Reduce colors",
+    stageLua: "3. Write Lua",
+    resizeMethod: "How to shrink",
+    methodSmooth: "Smooth (illustrations, photos)",
+    methodSharp: "Sharp (pixel art)",
+    maxColors: "Max colors (1–91, reduced only if needed)",
+    alpha: "Alpha threshold (0–255, below this = transparent)",
+    maxWidth: "Max width in dots (0 = no limit)",
+    maxHeight: "Max height in dots (0 = no limit)",
+    statResized: "{w} × {h} dots (resized from {ow} × {oh})",
+    gameSettings: "Preview: in the game (same values as in PixelView.New)",
+    step: "step (1 = every dot, 2 = every 2nd dot)",
+    folder: "Folder in your stage (inside external_lua_file)",
+    folderHint: "The .zip uses this folder, and Index.lua loads the files from it.",
+    compress: "Compress (repeated dots are written shorter; often less than half the size)",
+    statFileWithout: " ({n} KB without compression)",
+    merge: "merge (one ImageControl for same-colored dots in a row)",
+    gameSettingsHint: "These do not change the .lua files. They are used for the preview and the counts.",
+    files: "Files",
+    colName: "Name", colSize: "Size", colColors: "Colors", colControls: "ImageControls",
+    remove: "Remove",
+    growHint: "Largest: {n} ImageControls. Use this as the total of view:Grow(count, total).",
+    downloadZip: "Download all (.zip with Index.lua)",
+    name: "Name (file name and Index.lua key)",
+    original: "Original",
+    result: "In the game",
+    outline: "Show each ImageControl",
+    downloadLua: "Download .lua",
+    copy: "Copy",
+    copied: "Copied.",
+    statSize: "Size",
+    statShown: "Shown with step {step}", statControls: "ImageControls", statWithoutMerge: " ({n} without merge)",
+    statColors: "Colors", statFile: "File size", dots: "{w} × {h} dots",
+    errRead: "Could not read this file as an image.",
+    errNotPng: "{name} is not a PNG file.",
+  },
+  ja: {
+    subtitle: "PNG画像を、Miliastra Wonderland 用のドット絵の Lua データに変換します。処理はすべてブラウザの中で行い、画像はどこにも送られません。",
+    drop: "ここにPNGをドロップするか、クリックして選んでください（複数選べます）",
+    stageResize: "1. 縮小",
+    stageColors: "2. 色数を減らす",
+    stageLua: "3. Lua に書き出す",
+    resizeMethod: "縮小のしかた",
+    methodSmooth: "なめらか（イラスト・写真向け）",
+    methodSharp: "くっきり（ドット絵向け）",
+    maxColors: "最大の色数（1〜91、超えたときだけ減らす）",
+    alpha: "透明の基準（0〜255、これ未満は透明）",
+    maxWidth: "横のドット数の上限（0 = 上限なし）",
+    maxHeight: "縦のドット数の上限（0 = 上限なし）",
+    statResized: "{w} × {h} ドット（{ow} × {oh} から縮小）",
+    gameSettings: "プレビュー：ゲームの中（PixelView.New と同じ値）",
+    step: "step（1 = 全部のドット、2 = 1つおき）",
+    folder: "置き場所のフォルダ（external_lua_file の中）",
+    folderHint: "zip はこのフォルダに入った形になり、Index.lua はここからファイルを読み込みます。",
+    compress: "圧縮する（同じドットの繰り返しを短く書く。半分以下になることも多い）",
+    statFileWithout: "（圧縮しなければ {n} KB）",
+    merge: "merge（横に続く同じ色を1つの ImageControl にする）",
+    gameSettingsHint: "ここの設定は .lua ファイルの中身を変えません。プレビューと数の表示に使います。",
+    files: "ファイル",
+    colName: "名前", colSize: "大きさ", colColors: "色数", colControls: "ImageControl",
+    remove: "外す",
+    growHint: "最大で {n} 個の ImageControl を使います。view:Grow(count, total) の total にこの数を使ってください。",
+    downloadZip: "まとめてダウンロード（Index.lua 付きの .zip）",
+    name: "名前（ファイル名と Index.lua のキー）",
+    original: "元の画像",
+    result: "ゲームでの見え方",
+    outline: "ImageControl の区切りを表示",
+    downloadLua: ".lua をダウンロード",
+    copy: "コピー",
+    copied: "コピーしました。",
+    statSize: "大きさ",
+    statShown: "step {step} での表示", statControls: "ImageControl", statWithoutMerge: "（merge なしなら {n}）",
+    statColors: "色数", statFile: "ファイルの大きさ", dots: "{w} × {h} ドット",
+    errRead: "このファイルを画像として読み込めませんでした。",
+    errNotPng: "{name} はPNGファイルではありません。",
+  },
+};
+
+let lang = "en";
+
+// t("dots", { w: 16, h: 16 }) -> "16 × 16 dots"
+function t(key, params = {}) {
+  let s = TEXT[lang][key] ?? TEXT.en[key] ?? key;
+  for (const [k, v] of Object.entries(params)) s = s.replaceAll(`{${k}}`, v);
+  return s;
+}
+
+// An error whose message is shown to the user in the current language.
+function fail(key, params) {
+  const e = new Error(key);
+  e.key = key;
+  e.params = params;
+  return e;
+}
+
+function errorText(e) {
+  return e.key ? t(e.key, e.params) : String(e.message || e);
+}
+
+
+// ===== Settings shared with PixelView.lua =====
+
+// The character that means "transparent". Must match PixelView.lua.
+const TRANSPARENT_KEY = ".";
+
+// Characters used as color keys, most used color first.
+// "." (transparent), '"' and "\" (special in Lua strings) are not used. 91 characters in total.
+const PALETTE_KEYS =
+  "ABCDEFGHIJKLMNOPQRSTUVWXYZ" +
+  "abcdefghijklmnopqrstuvwxyz" +
+  "0123456789" +
+  "!#$%&'()*+,-/:;<=>?@[]^_`{|}~";
+
+// Compressed rows: characters that stand for a length. The 91 color keys and "." mean 4, 5, 6, ... 95.
+const COUNT_KEYS = PALETTE_KEYS + TRANSPARENT_KEY;
+const MIN_REPEAT = 4;   // shorter repeats are cheaper to write out as they are
+const MAX_REPEAT = MIN_REPEAT + COUNT_KEYS.length - 1;
+
+
+// ===== Reading the image =====
+
+// Draw the PNG on a hidden canvas and return its pixels.
+// data is a flat array: [R, G, B, A, R, G, B, A, ...], 4 numbers per pixel, left to right, top to bottom.
+async function readImage(file) {
+  // "none": do not let the browser adjust colors, so the numbers match the PNG file.
+  const bitmap = await createImageBitmap(file, { colorSpaceConversion: "none", premultiplyAlpha: "none" });
+  const canvas = document.createElement("canvas");
+  canvas.width = bitmap.width;
+  canvas.height = bitmap.height;
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(bitmap, 0, 0);
+  const image = ctx.getImageData(0, 0, bitmap.width, bitmap.height);
+  return { width: image.width, height: image.height, data: image.data, bitmap };
+}
+
+// ===== Small helpers =====
+
+function rgbToHex(r, g, b) {
+  return "#" + [r, g, b].map((v) => v.toString(16).toUpperCase().padStart(2, "0")).join("");
+}
+
+function hexToRgb(hex) {
+  return [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+}
+
+// Round like Python's round(): an exact .5 goes to the even number (2.5 -> 2, 3.5 -> 4).
+function roundHalfEven(v) {
+  const r = Math.round(v);
+  return Math.abs(v % 1) === 0.5 && r % 2 !== 0 ? r - 1 : r;
+}
+
+
+// ===== Step 1. Resizing =====
+
+// The largest size that keeps the shape (width : height) and fits in maxW × maxH.
+// 0 means "no limit". Pictures that already fit are not enlarged.
+function fitSize(w, h, maxW, maxH) {
+  const scale = Math.min(1, maxW ? maxW / w : 1, maxH ? maxH / h : 1);
+  if (scale === 1) return { w, h };
+  return {
+    w: Math.min(maxW || Infinity, Math.max(1, roundHalfEven(w * scale))),
+    h: Math.min(maxH || Infinity, Math.max(1, roundHalfEven(h * scale))),
+  };
+}
+
+// Sharp shrinking: for each output pixel, take the input pixel nearest to its center.
+// No new colors are made, so the edges of pixel art stay sharp.
+// For pixel art enlarged by a whole number (16×16 saved at 6× as 96×96), shrinking back to 16×16
+// takes exactly one pixel from each original dot.
+function resizeNearest(img, outW, outH) {
+  const data = new Uint8ClampedArray(outW * outH * 4);
+  for (let y = 0; y < outH; y++) {
+    const sy = Math.floor((y + 0.5) * img.height / outH);
+    for (let x = 0; x < outW; x++) {
+      const sx = Math.floor((x + 0.5) * img.width / outW);
+      for (let c = 0; c < 4; c++) data[4 * (y * outW + x) + c] = img.data[4 * (sy * img.width + sx) + c];
+    }
+  }
+  return { width: outW, height: outH, data };
+}
+
+
+// Smooth shrinking (bicubic, like Pillow and most paint programs).
+// The bicubic filter (a = -0.5): how much an input pixel at distance x counts.
+function cubic(x) {
+  const a = -0.5;
+  x = Math.abs(x);
+  if (x < 1) return ((a + 2) * x - (a + 3)) * x * x + 1;
+  if (x < 2) return (((x - 5) * x + 8) * x - 4) * a;
+  return 0;
+}
+
+// For each output position along one direction: the first input position to mix, and the weights.
+// When shrinking, the filter is stretched so that every input pixel is mixed in. Otherwise some input
+// pixels would be skipped, and the result would look rough.
+function resampleWeights(inSize, outSize) {
+  const scale = inSize / outSize;
+  const stretch = Math.max(scale, 1);
+  const support = 2 * stretch;   // the filter is 0 farther than 2 (stretched) pixels away
+  const result = [];
+  for (let o = 0; o < outSize; o++) {
+    const center = (o + 0.5) * scale;   // where output pixel o is, measured in input pixels
+    const first = Math.max(Math.floor(center - support + 0.5), 0);
+    const last = Math.min(Math.floor(center + support + 0.5), inSize);
+    const weights = [];
+    let total = 0;
+    for (let i = first; i < last; i++) {
+      const w = cubic((i + 0.5 - center) / stretch);
+      weights.push(w);
+      total += w;
+    }
+    result.push({ first, weights: weights.map((w) => w / total) });   // weights add up to 1
+  }
+  return result;
+}
+
+// Resize to outW × outH: first every row (horizontal), then every column (vertical).
+function resizeBicubic(img, outW, outH) {
+  const { width: inW, height: inH, data } = img;
+
+  // Multiply the colors by alpha first, so invisible pixels do not leak their color into the edges.
+  const pre = new Float64Array(inW * inH * 4);
+  for (let i = 0; i < inW * inH; i++) {
+    const a = data[4 * i + 3] / 255;
+    pre[4 * i] = data[4 * i] * a;
+    pre[4 * i + 1] = data[4 * i + 1] * a;
+    pre[4 * i + 2] = data[4 * i + 2] * a;
+    pre[4 * i + 3] = data[4 * i + 3];
+  }
+
+  // 1. Horizontal: inW × inH -> outW × inH
+  const wx = resampleWeights(inW, outW);
+  const mid = new Float64Array(outW * inH * 4);
+  for (let y = 0; y < inH; y++) {
+    for (let x = 0; x < outW; x++) {
+      const { first, weights } = wx[x];
+      for (let c = 0; c < 4; c++) {
+        let sum = 0;
+        for (let k = 0; k < weights.length; k++) sum += pre[4 * (y * inW + first + k) + c] * weights[k];
+        mid[4 * (y * outW + x) + c] = sum;
+      }
+    }
+  }
+
+  // 2. Vertical: outW × inH -> outW × outH, then divide the colors by alpha again
+  const wy = resampleWeights(inH, outH);
+  const out = new Uint8ClampedArray(outW * outH * 4);   // rounds and keeps values in 0..255
+  for (let y = 0; y < outH; y++) {
+    const { first, weights } = wy[y];
+    for (let x = 0; x < outW; x++) {
+      const v = [0, 0, 0, 0];
+      for (let k = 0; k < weights.length; k++) {
+        const j = 4 * ((first + k) * outW + x);
+        for (let c = 0; c < 4; c++) v[c] += mid[j + c] * weights[k];
+      }
+      const a = Math.min(255, Math.max(0, v[3]));
+      const i = 4 * (y * outW + x);
+      out[i + 3] = a;
+      if (a > 0) {
+        for (let c = 0; c < 3; c++) out[i + c] = v[c] * 255 / a;
+      }
+    }
+  }
+  return { width: outW, height: outH, data: out };
+}
+
+
+// ===== Step 2. Reducing colors (k-means in the Lab color space) =====
+
+// sRGB -> CIE Lab (D65). In Lab, distance is closer to how different two colors look.
+function toLab([r, g, b]) {
+  const lin = (v) => {
+    v /= 255;
+    return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+  };
+  const R = lin(r), G = lin(g), B = lin(b);
+  const x = (0.4124 * R + 0.3576 * G + 0.1805 * B) / 0.95047;
+  const y = 0.2126 * R + 0.7152 * G + 0.0722 * B;
+  const z = (0.0193 * R + 0.1192 * G + 0.9505 * B) / 1.08883;
+  const f = (t) => (t > 0.008856 ? t ** (1 / 3) : 7.787 * t + 16 / 116);
+  const fx = f(x), fy = f(y), fz = f(z);
+  return [116 * fy - 16, 500 * (fx - fy), 200 * (fy - fz)];
+}
+
+// A small random number generator with a fixed seed, so the same image always gives the same result.
+function makeRandom(seed) {
+  return function () {
+    seed = (seed + 0x6D2B79F5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// counts: Map from "#RRGGBB" to how many dots use it.
+// Returns a Map from each original color to its new color (at most k different colors).
+function kmeans(counts, k, iters = 12, seed = 0) {
+  const random = makeRandom(seed);
+  const cols = [...counts.keys()];
+  const rgbs = cols.map(hexToRgb);
+  const labs = rgbs.map(toLab);
+  const w = cols.map((c) => counts.get(c));
+  const n = cols.length;
+  if (n <= k) return new Map(cols.map((c) => [c, c]));
+
+  const d2 = (a, b) => (a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2 + (a[2] - b[2]) ** 2;
+
+  // k-means++: the first center is the most used color. Each next center is chosen at random,
+  // with chance proportional to (number of dots) x (distance to the nearest center)^2.
+  let first = 0;
+  for (let i = 1; i < n; i++) if (w[i] > w[first]) first = i;
+  let centers = [labs[first]];
+  const best = labs.map((l) => d2(l, centers[0]));
+  for (let c = 1; c < k; c++) {
+    let total = 0;
+    for (let i = 0; i < n; i++) total += best[i] * w[i];
+    const target = random() * total;
+    let acc = 0, pick = n - 1;
+    for (let i = 0; i < n; i++) {
+      acc += best[i] * w[i];
+      if (acc >= target) { pick = i; break; }
+    }
+    centers.push(labs[pick]);
+    for (let i = 0; i < n; i++) {
+      const d = d2(labs[i], labs[pick]);
+      if (d < best[i]) best[i] = d;
+    }
+  }
+
+  // Repeat: give each color to its nearest center, then move each center to the average of its colors.
+  let assign = new Array(n);
+  for (let it = 0; it < iters; it++) {
+    for (let i = 0; i < n; i++) {
+      let bestJ = 0, bestD = Infinity;
+      for (let j = 0; j < k; j++) {
+        const d = d2(labs[i], centers[j]);
+        if (d < bestD) { bestD = d; bestJ = j; }
+      }
+      assign[i] = bestJ;
+    }
+    const sums = centers.map(() => [0, 0, 0, 0]);
+    for (let i = 0; i < n; i++) {
+      const s = sums[assign[i]];
+      s[0] += labs[i][0] * w[i]; s[1] += labs[i][1] * w[i]; s[2] += labs[i][2] * w[i]; s[3] += w[i];
+    }
+    centers = sums.map((s, j) => (s[3] ? [s[0] / s[3], s[1] / s[3], s[2] / s[3]] : centers[j]));
+  }
+
+  // The color of each group is the average RGB of its members.
+  const sums = centers.map(() => [0, 0, 0, 0]);
+  for (let i = 0; i < n; i++) {
+    const s = sums[assign[i]];
+    s[0] += rgbs[i][0] * w[i]; s[1] += rgbs[i][1] * w[i]; s[2] += rgbs[i][2] * w[i]; s[3] += w[i];
+  }
+  const reps = sums.map((s) =>
+    s[3] ? rgbToHex(roundHalfEven(s[0] / s[3]), roundHalfEven(s[1] / s[3]), roundHalfEven(s[2] / s[3])) : null);
+  return new Map(cols.map((c, i) => [c, reps[assign[i]]]));
+}
+
+
+// ===== Steps 1 and 2 together: image -> grid of colors =====
+
+// The three steps: 1. resize, 2. reduce colors (here), 3. write Lua (makeLua, later).
+// Returns { grid, before }.
+// grid[y][x] is "#RRGGBB", or null for a transparent dot. Each pixel becomes one dot.
+// before is the number of colors before reducing.
+function loadPixels(img, settings) {
+  // 1. Resize, if the image is larger than the limits
+  const size = fitSize(img.width, img.height, settings.maxWidth, settings.maxHeight);
+  let dots = img;
+  if (size.w !== img.width || size.h !== img.height) {
+    dots = settings.method === "sharp"
+      ? resizeNearest(img, size.w, size.h)
+      : resizeBicubic(img, size.w, size.h);
+  }
+
+  // 2. Decide which dots are transparent, and count the colors
+  const alphaThreshold = settings.alpha;
+
+  const grid = [];
+  const counts = new Map();
+  for (let y = 0; y < dots.height; y++) {
+    const row = [];
+    for (let x = 0; x < dots.width; x++) {
+      const i = 4 * (y * dots.width + x);
+      if (dots.data[i + 3] >= alphaThreshold) {
+        const c = rgbToHex(dots.data[i], dots.data[i + 1], dots.data[i + 2]);
+        row.push(c);
+        counts.set(c, (counts.get(c) || 0) + 1);
+      } else {
+        row.push(null);
+      }
+    }
+    grid.push(row);
+  }
+
+  // Too many colors? Reduce them, then replace every dot with its new color.
+  const before = counts.size;
+  if (before > settings.maxColors) {
+    const mapping = kmeans(counts, settings.maxColors);
+    for (const row of grid) {
+      for (let x = 0; x < row.length; x++) {
+        if (row[x] !== null) row[x] = mapping.get(row[x]);
+      }
+    }
+  }
+  return { grid, before };
+}
+
+
+// ===== What the game will do (same rules as PixelView.lua) =====
+
+// Keep every step-th row and column, starting from the first (like "for y = 1, #rows, step" in Lua).
+function sampleGrid(grid, step) {
+  const out = [];
+  for (let y = 0; y < grid.length; y += step) {
+    const row = [];
+    for (let x = 0; x < grid[y].length; x += step) row.push(grid[y][x]);
+    out.push(row);
+  }
+  return out;
+}
+
+// The ImageControls the game will create: { col, row, length, color }.
+// With merge, same-colored dots next to each other in a row share one ImageControl.
+function makePieces(grid, merge) {
+  const pieces = [];
+  grid.forEach((row, y) => {
+    let last = null;
+    row.forEach((color, x) => {
+      if (color === null) {
+        last = null;
+      } else if (merge && last !== null && last.color === color) {
+        last.length++;
+      } else {
+        last = { col: x, row: y, length: 1, color };
+        pieces.push(last);
+      }
+    });
+  });
+  return pieces;
+}
+
+
+// ===== Step 3. Writing the Lua text =====
+
+// Give A, B, C ... to the colors, most used first.
+function buildPalette(grid) {
+  const counts = new Map();
+  for (const row of grid) {
+    for (const c of row) {
+      if (c !== null) counts.set(c, (counts.get(c) || 0) + 1);
+    }
+  }
+  const ordered = [...counts.keys()].sort((a, b) => counts.get(b) - counts.get(a));
+  return new Map(ordered.map((c, i) => [c, PALETTE_KEYS[i]]));
+}
+
+// Compress the rows. Each row is read from left to right, and written as:
+//   a color key or "."      one dot, as it is
+//   " " + length + key      the key repeated `length` times     (" 7A" = AAAAAAAAAAA: "7" means 11)
+//   "  " + length           the same `length` dots as the row above
+// Lengths are single characters from COUNT_KEYS ("A" = 4, "B" = 5, ...).
+// A space never appears in an uncompressed row, so there is no mix-up.
+function compressRows(rows) {
+  const out = [];
+  let above = null;
+  for (const row of rows) {
+    let text = "";
+    let i = 0;
+    while (i < row.length) {
+      // How many times the dot at i repeats, and how many dots from i match the row above
+      let repeat = 1;
+      while (i + repeat < row.length && row[i + repeat] === row[i]) repeat++;
+      let same = 0;
+      while (above !== null && i + same < row.length && row[i + same] === above[i + same]) same++;
+
+      if (same >= MIN_REPEAT && same >= repeat) {
+        const n = Math.min(same, MAX_REPEAT);
+        text += "  " + COUNT_KEYS[n - MIN_REPEAT];
+        i += n;
+      } else if (repeat >= MIN_REPEAT) {
+        const n = Math.min(repeat, MAX_REPEAT);
+        text += " " + COUNT_KEYS[n - MIN_REPEAT] + row[i];
+        i += n;
+      } else {
+        text += row[i];
+        i += 1;
+      }
+    }
+    out.push(text);
+    above = row;
+  }
+  return out;
+}
+
+function makeLua(grid, palette, name, compress) {
+  const h = grid.length, w = grid[0].length;
+  let rows = grid.map((row) => row.map((c) => (c === null ? TRANSPARENT_KEY : palette.get(c))).join(""));
+  const lines = [];
+  if (compress) {
+    rows = compressRows(rows);
+    lines.push(`-- ${name} (${w}x${h}). Compressed rows (see PixelView.lua). Generated by Pixel Importer 91`);
+  } else {
+    lines.push(`-- ${name} (${w}x${h}). '.' is transparent. Generated by Pixel Importer 91`);
+  }
+  lines.push("return {");
+  lines.push(`    width = ${w},`);
+  lines.push(`    height = ${h},`);
+  if (compress) lines.push(`    encoding = "rle",`);
+  lines.push("    palette = {");
+  for (const [color, key] of palette) {
+    // Letters can be written as  A = "...".  Other characters need  ["7"] = "...".
+    if (/^[A-Za-z]$/.test(key)) lines.push(`        ${key} = "${color}",`);
+    else lines.push(`        ["${key}"] = "${color}",`);
+  }
+  lines.push("    },");
+  lines.push("    rows = {");
+  for (const text of rows) lines.push(`        "${text}",`);
+  lines.push("    },");
+  lines.push("}");
+  return lines.join("\n") + "\n";
+}
+
+// Index.lua: name -> picture. A picture that cannot be loaded becomes nil instead of stopping the game.
+// require() is written out for each file, because the paths must be plain strings.
+function makeIndexLua(names, folder) {
+  const lines = [
+    "-- Name -> picture. Generated by Pixel Importer 91",
+    "-- A picture that cannot be loaded (for example, no Script Mapping) becomes nil, and is printed to the log.",
+    "",
+    "local function Load(name, loader)",
+    "    local ok, art = pcall(loader)",
+    "    if ok and type(art) == \"table\" then",
+    "        return art",
+    "    end",
+    "    print(\"[Pixel Importer 91] Cannot load: \" .. name)",
+    "    return nil",
+    "end",
+    "",
+    "return {",
+  ];
+  for (const name of names) {
+    lines.push(`    ["${name}"] = Load(`);
+    lines.push(`        "${name}",`);
+    lines.push("        function()");
+    lines.push(`            return require("${folder}/${name}")`);
+    lines.push("        end");
+    lines.push("    ),");
+  }
+  lines.push("}");
+  return lines.join("\n") + "\n";
+}
+
+
+// ===== Making a .zip file (no compression) =====
+
+const CRC_TABLE = (() => {
+  const table = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1;
+    table[n] = c;
+  }
+  return table;
+})();
+
+// A checksum the zip format requires for each file.
+function crc32(bytes) {
+  let c = 0xFFFFFFFF;
+  for (const b of bytes) c = CRC_TABLE[(c ^ b) & 0xFF] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+
+// files: [{ path: "images/a.lua", text: "..." }, ...]  ->  Blob of a .zip file
+function makeZip(files) {
+  const encoder = new TextEncoder();
+  const now = new Date();
+  const time = (now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1);
+  const date = ((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate();
+  const parts = [], central = [];
+  let offset = 0;
+
+  for (const file of files) {
+    const name = encoder.encode(file.path);
+    const data = encoder.encode(file.text);
+    const crc = crc32(data);
+
+    // Header before each file's data
+    const local = new DataView(new ArrayBuffer(30));
+    local.setUint32(0, 0x04034b50, true);   // signature
+    local.setUint16(4, 20, true);           // version needed
+    local.setUint16(6, 0x0800, true);       // file names are UTF-8
+    local.setUint16(8, 0, true);            // no compression
+    local.setUint16(10, time, true);
+    local.setUint16(12, date, true);
+    local.setUint32(14, crc, true);
+    local.setUint32(18, data.length, true); // compressed size
+    local.setUint32(22, data.length, true); // size
+    local.setUint16(26, name.length, true);
+    local.setUint16(28, 0, true);
+    parts.push(local, name, data);
+
+    // The same information again, in the list at the end of the file
+    const entry = new DataView(new ArrayBuffer(46));
+    entry.setUint32(0, 0x02014b50, true);
+    entry.setUint16(4, 20, true);
+    entry.setUint16(6, 20, true);
+    entry.setUint16(8, 0x0800, true);
+    entry.setUint16(10, 0, true);
+    entry.setUint16(12, time, true);
+    entry.setUint16(14, date, true);
+    entry.setUint32(16, crc, true);
+    entry.setUint32(20, data.length, true);
+    entry.setUint32(24, data.length, true);
+    entry.setUint16(28, name.length, true);
+    entry.setUint32(42, offset, true);      // where this file's header starts
+    central.push(entry, name);
+
+    offset += 30 + name.length + data.length;
+  }
+
+  const centralSize = central.reduce((sum, part) => sum + part.byteLength, 0);
+  const end = new DataView(new ArrayBuffer(22));
+  end.setUint32(0, 0x06054b50, true);
+  end.setUint16(8, files.length, true);
+  end.setUint16(10, files.length, true);
+  end.setUint32(12, centralSize, true);
+  end.setUint32(16, offset, true);
+  return new Blob([...parts, ...central, end], { type: "application/zip" });
+}
+
+
+// ===== Drawing previews =====
+
+// Draw the grid onto a canvas, each dot as a scale×scale square.
+// With pieces, also draw the outline of each ImageControl.
+function drawPreview(canvas, grid, pieces) {
+  const h = grid.length, w = grid[0].length;
+  const scale = Math.max(1, Math.floor(440 / Math.max(w, h)));
+  canvas.width = w * scale;
+  canvas.height = h * scale;
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      if (grid[y][x] !== null) {
+        ctx.fillStyle = grid[y][x];
+        ctx.fillRect(x * scale, y * scale, scale, scale);
+      }
+    }
+  }
+  if (pieces && scale >= 3) {
+    ctx.lineWidth = 1;
+    for (const p of pieces) {
+      // Dark outline on light colors, light outline on dark colors
+      const [r, g, b] = hexToRgb(p.color);
+      ctx.strokeStyle = 0.299 * r + 0.587 * g + 0.114 * b > 128 ? "rgba(0,0,0,0.45)" : "rgba(255,255,255,0.55)";
+      ctx.strokeRect(p.col * scale + 0.5, p.row * scale + 0.5, p.length * scale - 1, scale - 1);
+    }
+  }
+}
+
+function drawOriginal(canvas, img) {
+  const scale = Math.max(1, Math.floor(440 / Math.max(img.width, img.height)));
+  canvas.width = img.width * scale;
+  canvas.height = img.height * scale;
+  const ctx = canvas.getContext("2d");
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(img.bitmap, 0, 0, canvas.width, canvas.height);
+}
+
+
+// ===== The page =====
+
+const $ = (id) => document.getElementById(id);
+
+// One entry per file:
+//   { name, image, lua, grid, palette, before, error }
+const items = [];
+let selected = -1;
+
+// Keep only a-z, 0-9 and _ so the name works as a file name and in require("...").
+function safeName(text) {
+  const s = text.trim().toLowerCase().replace(/[^a-z0-9_]+/g, "_").replace(/^_+|_+$/g, "");
+  return s || "image";
+}
+
+// Folder: letters, digits, _ and /, without a / at either end.
+function safeFolder(text) {
+  return text.trim().replace(/\\/g, "/").replace(/[^A-Za-z0-9_/]+/g, "_")
+    .split("/").filter((part) => part !== "").join("/");
+}
+
+// "sprite" -> "sprite_2" if "sprite" is already used by another file.
+function uniqueName(base, except) {
+  const used = new Set(items.filter((it) => it !== except).map((it) => it.name));
+  if (!used.has(base)) return base;
+  let n = 2;
+  while (used.has(`${base}_${n}`)) n++;
+  return `${base}_${n}`;
+}
+
+function readNumber(id, min, max, fallback) {
+  const v = Math.floor(Number($(id).value));
+  const result = Number.isFinite(v) ? Math.min(max, Math.max(min, v)) : fallback;
+  $(id).value = result;   // show the value that is actually used
+  return result;
+}
+
+function settings() {
+  return {
+    method: $("method").value,
+    maxColors: readNumber("maxColors", 1, PALETTE_KEYS.length, PALETTE_KEYS.length),
+    maxWidth: readNumber("maxWidth", 0, 4096, 0),
+    maxHeight: readNumber("maxHeight", 0, 4096, 0),
+    alpha: readNumber("alpha", 0, 255, 128),
+    step: readNumber("step", 1, 64, 1),
+    merge: $("merge").checked,
+    compress: $("compress").checked,
+  };
+}
+
+function showMessage(text, isError) {
+  $("message").textContent = text;
+  $("message").className = isError ? "error" : "";
+}
+
+// Convert one file with the current settings.
+function convertItem(item, s) {
+  item.error = null;
+  try {
+    const { grid, before } = loadPixels(item.image, s);
+    item.grid = grid;
+    item.before = before;
+    item.palette = buildPalette(grid);
+    item.lua = makeLua(grid, item.palette, item.name, s.compress);
+    item.plainSize = s.compress ? new Blob([makeLua(grid, item.palette, item.name, false)]).size : 0;
+  } catch (e) {
+    item.error = e;
+    item.lua = "";
+  }
+}
+
+// How many ImageControls the game needs for this file.
+function controlsNeeded(item, s, merge = s.merge) {
+  return makePieces(sampleGrid(item.grid, s.step), merge).length;
+}
+
+// Let the page redraw before the next long calculation.
+const nextFrame = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+async function convertAll() {
+  const s = settings();
+  for (const item of items) {
+    convertItem(item, s);
+    await nextFrame();
+  }
+  render();
+}
+
+// Update everything on the page from `items` and `selected`.
+function render() {
+  const s = settings();
+  $("filesPanel").hidden = items.length === 0;
+  $("resultPanel").hidden = selected < 0;
+
+  // The file list
+  const tbody = $("fileRows");
+  tbody.textContent = "";
+  let largest = 0;
+  items.forEach((item, i) => {
+    const tr = document.createElement("tr");
+    if (i === selected) tr.className = "selected";
+    const cell = (text, className) => {
+      const td = document.createElement("td");
+      td.textContent = text;
+      if (className) td.className = className;
+      tr.append(td);
+      return td;
+    };
+    cell(item.name);
+    if (item.error) {
+      const td = cell(errorText(item.error), "error");
+      td.colSpan = 3;
+    } else {
+      const n = controlsNeeded(item, s);
+      largest = Math.max(largest, n);
+      cell(`${item.grid[0].length} × ${item.grid.length}`, "num");
+      cell(String(item.palette.size), "num");
+      cell(n.toLocaleString("en-US"), "num");
+    }
+    const removeCell = cell("");
+    const remove = document.createElement("button");
+    remove.className = "secondary remove";
+    remove.textContent = t("remove");
+    remove.addEventListener("click", (e) => {
+      e.stopPropagation();   // do not also select the row
+      items.splice(i, 1);
+      if (selected >= items.length) selected = items.length - 1;
+      render();
+    });
+    removeCell.append(remove);
+    tr.addEventListener("click", () => {
+      selected = i;
+      render();
+    });
+    tbody.append(tr);
+  });
+  $("growHint").textContent = largest > 0 ? t("growHint", { n: largest.toLocaleString("en-US") }) : "";
+  $("downloadZip").disabled = !items.some((item) => !item.error);
+
+  // The selected file
+  const item = items[selected];
+  $("download").disabled = $("copy").disabled = !item || !!item.error;
+  $("stats").textContent = "";
+  $("output").value = "";
+  if (!item) return;
+  if (document.activeElement !== $("name")) $("name").value = item.name;
+  drawOriginal($("original"), item.image);
+  if (item.error) {
+    $("preview").width = $("preview").height = 0;
+    showMessage(errorText(item.error), true);
+    return;
+  }
+  showMessage("", false);
+
+  const w = item.grid[0].length, h = item.grid.length;
+  const resized = w !== item.image.width || h !== item.image.height;
+  const shown = sampleGrid(item.grid, s.step);
+  const pieces = makePieces(shown, s.merge);
+  drawPreview($("preview"), shown, $("outline").checked ? pieces : null);
+  const stats = [
+    [t("statSize"), resized
+      ? t("statResized", { w, h, ow: item.image.width, oh: item.image.height })
+      : t("dots", { w, h })],
+    [t("statColors"), item.before > item.palette.size ? `${item.before} → ${item.palette.size}` : `${item.palette.size}`],
+    [t("statShown", { step: s.step }), t("dots", { w: shown[0].length, h: shown.length })],
+    [t("statControls"), pieces.length.toLocaleString("en-US") +
+      (s.merge ? t("statWithoutMerge", { n: controlsNeeded(item, s, false).toLocaleString("en-US") }) : "")],
+    [t("statFile"), `${(new Blob([item.lua]).size / 1024).toFixed(1)} KB` +
+      (item.plainSize ? t("statFileWithout", { n: (item.plainSize / 1024).toFixed(1) }) : "")],
+  ];
+  for (const [label, value] of stats) {
+    const li = document.createElement("li");
+    li.append(label + ": ");
+    const b = document.createElement("b");
+    b.textContent = value;
+    li.append(b);
+    $("stats").append(li);
+  }
+  $("output").value = item.lua;
+}
+
+async function addFiles(fileList) {
+  const s = settings();
+  for (const file of fileList) {
+    if (file.type !== "image/png") {
+      showMessage(t("errNotPng", { name: file.name }), true);
+      continue;
+    }
+    let image;
+    try {
+      image = await readImage(file);
+    } catch (e) {
+      showMessage(t("errRead"), true);
+      continue;
+    }
+    const item = { name: uniqueName(safeName(file.name.replace(/\.[^.]*$/, ""))), image };
+    convertItem(item, s);
+    items.push(item);
+    selected = items.length - 1;
+    render();
+    await nextFrame();
+  }
+}
+
+// Save a Blob as a file in the Downloads folder.
+function saveBlob(blob, fileName) {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = fileName;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+function downloadZip() {
+  const folder = safeFolder($("folder").value) || "images";
+  $("folder").value = folder;
+  const good = items.filter((item) => !item.error);
+  const files = good.map((item) => ({ path: `${folder}/${item.name}.lua`, text: item.lua }));
+  files.push({ path: `${folder}/Index.lua`, text: makeIndexLua(good.map((item) => item.name), folder) });
+  saveBlob(makeZip(files), folder.split("/").pop() + ".zip");
+}
+
+function setLanguage(next) {
+  lang = next;
+  document.documentElement.lang = lang;
+  for (const el of document.querySelectorAll("[data-i18n]")) el.textContent = t(el.dataset.i18n);
+  $("output").placeholder = lang === "ja" ? "ここに Lua のデータが表示されます。" : "The Lua data will appear here.";
+  $("lang-en").className = lang === "en" ? "" : "secondary";
+  $("lang-ja").className = lang === "ja" ? "" : "secondary";
+  try { localStorage.setItem("pixel-importer-lang", lang); } catch (e) { /* storage may be blocked */ }
+  render();
+}
+
+// --- Connect the page to the functions above ---
+
+const drop = $("drop");
+drop.addEventListener("click", () => $("file").click());
+$("file").addEventListener("change", (e) => {
+  addFiles([...e.target.files]);
+  e.target.value = "";   // allow choosing the same file again
+});
+drop.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("over"); });
+drop.addEventListener("dragleave", () => drop.classList.remove("over"));
+drop.addEventListener("drop", (e) => {
+  e.preventDefault();
+  drop.classList.remove("over");
+  addFiles([...e.dataTransfer.files]);
+});
+
+// Conversion settings: convert every file again
+for (const id of ["maxWidth", "maxHeight", "method", "maxColors", "alpha", "compress"]) $(id).addEventListener("change", convertAll);
+// Game settings: only the preview and the counts change
+for (const id of ["step", "merge", "outline"]) $(id).addEventListener("change", render);
+
+$("name").addEventListener("change", () => {
+  const item = items[selected];
+  if (!item) return;
+  item.name = uniqueName(safeName($("name").value), item);
+  $("name").value = item.name;
+  convertItem(item, settings());   // the name is written in the first line of the .lua
+  render();
+});
+$("download").addEventListener("click", () => {
+  const item = items[selected];
+  saveBlob(new Blob([item.lua], { type: "text/plain" }), item.name + ".lua");
+});
+$("copy").addEventListener("click", async () => {
+  await navigator.clipboard.writeText(items[selected].lua);
+  showMessage(t("copied"), false);
+});
+$("downloadZip").addEventListener("click", downloadZip);
+$("lang-en").addEventListener("click", () => setLanguage("en"));
+$("lang-ja").addEventListener("click", () => setLanguage("ja"));
+
+// Start in the saved language, or Japanese if the browser is set to Japanese
+let startLang = navigator.language.startsWith("ja") ? "ja" : "en";
+try { startLang = localStorage.getItem("pixel-importer-lang") || startLang; } catch (e) { /* ignore */ }
+setLanguage(startLang);
+</script>
+</body>
+</html>
