@@ -3,6 +3,15 @@
 Bring your own images into **Miliastra Wonderland** as pixel art, with Client Scripts (Lua).
 Pixel art, icons, illustrations and photos all work: large images are shrunk to the size you choose.
 
+## Why Pixel Importer 91?
+
+Existing UI image rendering tools tend to produce large files, making it difficult to include many images in a single stage.
+Pixel Importer 91 solves this problem by allowing creators to store large numbers of images using very little storage space,
+at the cost of limiting the color palette to 91 colors.
+
+- Each dot is written as **a single character**, and runs of repeated dots are **compressed** further.
+- Same-colored dots in a row are drawn with **one ImageControl**, so pictures also show faster.
+
 Pixel Importer 91 has two parts:
 
 1. **A converter that runs in your browser** (`index.html`). Drop PNG files on it and get Lua data files.
