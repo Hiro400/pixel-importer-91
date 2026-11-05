@@ -1,88 +1,54 @@
 # Pixel Importer 91
 
-Bring your own images into **Miliastra Wonderland** as pixel art, with Client Scripts (Lua).
-Pixel art, icons, illustrations and photos all work: large images are shrunk to the size you choose.
+Display your own images in **Miliastra Wonderland** using Client Scripts (Lua).
 
-## Why Pixel Importer 91?
+Pixel Importer 91 consists of **two components** that work together:
 
-Existing UI image rendering tools tend to produce large files, making it difficult to include many images in a single stage.
-Pixel Importer 91 solves this problem by allowing creators to store large numbers of images using very little storage space,
-at the cost of limiting the color palette to 91 colors.
+1. **Browser-based converter (`index.html`).** Resize and convert one or more PNG images into compact Lua data files, along with an automatically generated `Index.lua` for loading them. The converter runs entirely in your browser.
+2. **Lua renderer (`lua/PixelView.lua`).** Use this library in your stage's Client Scripts to display the converted images through ImageControls. It handles image decoding, merging adjacent pixels, and reusing controls.
 
-- Each dot is written as **a single character**, and runs of repeated dots are **compressed** further.
-- Same-colored dots in a row are drawn with **one ImageControl**, so pictures also show faster.
+In short, **the converter prepares the image data, and the Lua renderer displays it in the game**. The tool supports pixel art, icons, illustrations, and photos.
 
-Pixel Importer 91 has two parts:
+**[Open the converter](https://hiro400.github.io/pixel-importer-91/)** · **[Watch the video tutorial](https://youtu.be/Akh2coZszas)** · **[日本語版 README](README.ja.md)**
 
-1. **A converter that runs in your browser** (`index.html`). Drop PNG files on it and get Lua data files.
-   No installation. Your images never leave your computer.
-2. **A small Lua library** (`lua/PixelView.lua`). It draws the picture in the game by placing square ImageControls.
-
-**Why 91?** Each color is written as one character in a Lua string, and exactly 91 printable ASCII characters
-are safe to use that way. So a picture can have up to 91 colors, and the data stays short and easy to read.
-
-[日本語の説明はこちら (README.ja.md)](README.ja.md)
-
-**Open the converter:** [https://hiro400.github.io/pixel-importer-91/](https://hiro400.github.io/pixel-importer-91/)
-
-**Video tutorial:** [https://youtu.be/Akh2coZszas](https://youtu.be/Akh2coZszas)
+## Demo and video tutorial
 
 ![The converter](examples/screenshot.png)
 
 ![The sample picture shown in the game](examples/in-game.png)
 
-*The sample picture in the game (16 × 16 dots, 69 ImageControls).*
+*In-game example: 16 × 16 dots, rendered with 69 ImageControls.*
 
-## Features
+**New to the tool? Start with the [video tutorial](https://youtu.be/Akh2coZszas).** It covers converting images, preparing the ImageControl template, registering Lua files in Script Mapping, and displaying the result in the editor.
 
-- Works in three steps: **resize → reduce colors → write Lua**, and the settings are in the same order.
-- Shrinks large images to fit a maximum width and height in dots, keeping their shape.
-  Choose **smooth** (bicubic) for illustrations and photos, or **sharp** (nearest) for pixel art.
-- Reduces the colors to 91 or fewer when needed, keeping small but important colors such as eye colors.
-- Converts many files at once and makes `Index.lua`, so all pictures can be loaded with one `require`.
-- Shows how the picture will look in the game, and how many ImageControls it needs.
-- **Merging** (on by default): same-colored dots next to each other in a row share one ImageControl.
-  This often cuts the number of ImageControls, and the time to show a picture, by about half.
-- **Compression** (on by default): repeated dots are written shorter, so the `.lua` files are often less than half the size.
-  PixelView expands them by itself.
-- `Grow`: creates the ImageControls a few at a time before they are needed, so showing the first picture does not freeze the game.
-- `step`: shows a picture at half (or lower) resolution without converting it again.
+This README is primarily a **reference** for the converter's features, the Lua API, performance considerations, and the data format. It does not repeat the editor setup walkthrough from the video.
 
-## Quick start
+## Why Pixel Importer 91?
 
-### 1. Convert your pictures
+Existing UI image rendering tools tend to produce large files, making it difficult to include many images in a single Miliastra Wonderland stage. Pixel Importer 91 solves this problem by storing image data in a highly compact format, at the cost of limiting each image to 91 colors.
 
-1. Open the converter and drop one or more PNG files on it.
-   Each pixel of the image becomes one dot, so set **Max width** and **Max height** for large images
-   (for example 128 × 144).
-   For pixel art saved larger than its real size (a 16×16 picture saved as 96×96), choose **Sharp**
-   and set the limits to the real size (16 × 16). You get exactly the original dots back.
-2. Set **Folder in your stage** to the folder you will use inside `external_lua_file` (for example `mygame/images`).
-   The .zip uses this folder, and Index.lua loads the files from it.
-3. Click **Download all**. You get a `.zip` file with one `.lua` per picture and an `Index.lua`.
+Key features include:
 
-### 2. Put the files in your stage
+- **Compact Lua data.** PNG image data is converted into Lua files, using approximately one byte per pixel to store color information. Taking advantage of the 91-color limitation, the tool further compresses the data using an encoding scheme similar to Run-Length Encoding (RLE).
+- **Fewer ImageControls.** Adjacent pixels of the same color can be combined into a single wider ImageControl (**Merge**, enabled by default).
+- **Efficient rendering.** Previously created ImageControls are reused whenever possible. The `Grow` function also allows ImageControls to be created gradually across multiple frames, reducing freezes during initial rendering.
+- **Batch conversion.** Convert multiple PNG images at once and manage them through the automatically generated `Index.lua` file.
+- **Local conversion.** The converter runs entirely in your browser, requiring no installation or image uploads.
+- **Flexible settings.** Adjust image resolution, resizing method, transparency threshold, merging, and display-time resolution.
 
-1. Unzip the file into the `external_lua_file` folder of your stage, so the folders match the require path.
-2. Copy `lua/PixelView.lua` into a folder named `pixel_importer` inside `external_lua_file`
-   (a folder of its own keeps it from clashing with your other files).
-3. Register each `.lua` file (`PixelView.lua`, `Index.lua`, your pictures and your own script) in Script Mapping.
+## PixelView API
 
-### 3. Make a template
+### Minimal example
 
-Make one **ImageControl** in the UI editor and save it as a template. Its size does not matter:
-PixelView resizes each ImageControl to the size of one dot (`dotSize`, below).
-Leave its pivot in the center.
-
-### 4. Show the picture
+The following snippet illustrates the API after the editor setup shown in the video:
 
 ```lua
 local PixelView = require("pixel_importer/PixelView")
-local Images = require("mygame/images/Index")
+local Images = require("images/Index")
 
 local view = PixelView.New({
     parent = script.object,
-    templateIndex = 1,   -- your ImageControl template
+    templateIndex = 1, -- replace with your ImageControl template index
     x = 200,
     y = 200,
     dotSize = 4,
@@ -91,60 +57,111 @@ local view = PixelView.New({
 view:Show(Images["sample"])
 ```
 
-See [`examples/Main.lua`](examples/Main.lua) for a complete script that uses `Grow`.
+In this example, set **Folder in your stage** to `images` and place the generated files in `external_lua_file/images`, and `PixelView.lua` in `external_lua_file/pixel_importer`. The import paths are then `images/Index` and `pixel_importer/PixelView`. Adjust the `require` paths if you use a different folder. This snippet assumes `script.object` is an appropriate UI parent and that the ImageControl template already exists. For **large images**, pre-create controls with `Grow` before calling `Show`, as described below. See [`examples/Main.lua`](examples/Main.lua) for a more complete example.
 
-## PixelView reference
+### Methods
 
-| Function | What it does |
+| Method | Description |
 | --- | --- |
-| `PixelView.New(options)` | Makes a view. See the options below. |
-| `view:Show(art)` | Shows a picture. Does nothing if the same picture is already shown. `nil` hides it. |
-| `view:Clear()` | Hides the picture. |
-| `view:Count(art)` | How many ImageControls the picture needs with this view's settings. It also does the picture's calculation in advance (see below). |
-| `view:Grow(count, total)` | Creates up to `count` ImageControls now, until there are `total`. Returns `true` when done. |
+| `PixelView.New(options)` | Create a view. See the options below. |
+| `view:Show(art)` | Display an image. Does nothing when that same image is already displayed. Passing `nil` hides it. |
+| `view:Clear()` | Hide the displayed image without discarding the ImageControls; they can be reused later. |
+| `view:Count(art)` | Return the number of ImageControls required with the current view settings. Also prepare the image layout for later display. Returns `0` for `nil`. |
+| `view:Prepare(art)` | Prepare the layout without displaying the image. Usually unnecessary if `Count` is used. |
+| `view:Grow(count, total)` | Create up to `count` additional ImageControls during the call, until the view has `total`. Return `true` when the target has been reached. |
 
-The first `Show` of a picture works out where each ImageControl goes, and remembers the result.
-`Count` does this calculation too, so after `Count` the first `Show` is already faster.
-To do only the calculation, there is also `view:Prepare(art)`. Usually you do not need it.
+`Show` normally calculates the positions and colors of the necessary controls the first time an image is displayed. `Count` or `Prepare` performs that calculation in advance, so the first `Show` has less work to do.
 
-**When a picture cannot be loaded** (for example, it is not registered in Script Mapping), the game does not stop.
-`Index.lua` prints `[Pixel Importer 91] Cannot load: name` once when it is loaded, and that picture becomes `nil`.
-`view:Show(nil)` just hides the picture, and `view:Count(nil)` returns 0.
+For large images, call `Grow` **once per frame** (for example, from `OnUpdate`) until it returns `true`:
 
-Options of `PixelView.New`:
+```lua
+local art = Images["sample"]
+local total = view:Count(art)
 
-| Option | Default | Meaning |
+-- In OnUpdate, repeat until this returns true:
+if view:Grow(300, total) then
+    view:Show(art)
+end
+```
+
+A smaller first argument creates fewer ImageControls per frame and may reduce stuttering during preparation. The example above is an API usage pattern, not a complete event-handler script.
+
+### `PixelView.New` options
+
+| Option | Default | Description |
 | --- | --- | --- |
-| `parent` | (required) | Where the ImageControls are created. |
-| `templateIndex` | (required) | The ImageControl template (any size). |
+| `parent` | Required | UI parent under which ImageControls will be created. |
+| `templateIndex` | Required | Index of the ImageControl template. |
 | `x`, `y` | `0`, `0` | Position of the top-left dot (`anchoredPositionX` / `Y`). |
-| `dotSize` | `4` | Size of one dot. Dots are placed this far apart. |
-| `step` | `1` | `2` uses every 2nd dot: half the width and height, a quarter of the ImageControls. |
-| `merge` | `true` | Same-colored dots next to each other in a row share one wide ImageControl. `false` turns it off. |
-| `gap` | `0` | Space left between neighboring dots. Must be smaller than `dotSize`. |
-| `pivotX` | `0.5` | The template's horizontal pivot (0 = left, 0.5 = center, 1 = right). Only used with `merge`. |
+| `dotSize` | `4` | Size of each dot and the distance between neighboring dot positions. |
+| `step` | `1` | Display every `step`-th source dot in each direction. For example, `2` displays roughly half the width and height. |
+| `merge` | `true` | Combine adjacent same-colored dots in each row into wider ImageControls. |
+| `gap` | `0` | Gap between neighboring dots; must be smaller than `dotSize`. |
+| `pivotX` | `0.5` | Horizontal pivot of the ImageControl template (`0` = left, `0.5` = center, `1` = right). Used when `merge` is enabled. |
+
+### Missing images
+
+If a generated image file cannot be loaded—for instance, because it is absent from Script Mapping—`Index.lua` prints a message like:
+
+```text
+[Pixel Importer 91] Cannot load: sample
+```
+
+That image is treated as `nil`; `view:Show(nil)` hides the current picture and `view:Count(nil)` returns `0`.
 
 ## Choosing the settings
 
-**How many ImageControls?** Without merging, each visible dot needs one ImageControl:
-a 128×144 picture with no transparent dots needs 18,432. Merging (the default) needs far fewer.
-The converter shows the number for each picture, and the largest one.
+### In the converter
 
-**`Grow`.** Creating thousands of ImageControls at once takes time. Call `Grow` once per frame
-(for example in `OnUpdate`) with the largest number from the converter as `total`.
-After that, `Show` only moves and colors ImageControls that already exist.
-If the game stutters while growing, use a smaller `count`.
+- **Max width / Max height:** Limit the number of output dots while preserving the image's aspect ratio. Images that already fit are not enlarged.
+- **Smooth / Sharp:** Use Smooth (bicubic) for illustrations or photos. Use Sharp (nearest-neighbor) for pixel art whose original pixels should remain distinct.
+- **Alpha threshold:** Determine whether a resulting dot is opaque or transparent; partial transparency is not retained.
+- **Compress (default: on):** Apply RLE to the exported Lua data. This affects file size, not the number of ImageControls used to display the image.
+- **Merge (default: on):** Combine horizontal runs of identical colors when rendered, reducing the number of ImageControls. This affects rendering, not the underlying 91-color palette.
 
-**`merge`.** In a test with a 128×144 portrait, merging cut the ImageControls from 18,432 to 8,607,
-and the time of `Show` from about 0.32 s to 0.16 s.
-A wide ImageControl also covers the gaps between its dots.
-With a `gap`, `merge` fills the gaps inside each merged piece and changes the look.
-With the default (`gap = 0`), the look does not change.
+The converter also shows an output preview and the ImageControl count for each image, as well as the largest count in the batch.
+The **step** and **merge** settings in the converter's preview section only change this preview and these counts, not the generated files.
+Set them to the same values as in `PixelView.New` so that the counts match the game.
 
-**One view per place.** Each view creates its own ImageControls.
-If two screens are never shown at the same time, they can share one view.
+### When rendering in Lua
 
-## The data format
+**`Grow`** pre-creates ImageControls over several frames. Creating thousands of controls all at once can cause a noticeable pause. Use `view:Count(art)` to determine how many are needed, then call `Grow` repeatedly before `Show`. If the game stutters while growing, decrease the per-frame `count`.
+
+**`step`** lets you display a smaller version of the same image data without converting it again. With `step = 2`, roughly one quarter of the source dots are sampled (before any merging), so the number of ImageControls may fall substantially.
+
+**`merge` and `gap`** interact. One wide ImageControl spans an entire merged run, including what would otherwise be gaps between its dots. If preserving visible gaps between individual dots matters, use `merge = false`.
+
+**Reuse views when possible.** Each view manages its own ImageControls. Pictures shown in the same location at different times can share a view, and `Clear` hides an image without removing controls that may be used later.
+
+## Performance
+
+Two different optimizations matter:
+
+| Optimization | What it reduces | What it does not necessarily reduce |
+| --- | --- | --- |
+| **Compress (RLE)** | Size of generated Lua image data | Number of ImageControls |
+| **Merge** | Number of ImageControls and work needed to display an image | Size of the Lua image data (the generated files are the same) |
+
+### ImageControl count and display time
+
+An opaque 128 × 144 picture contains **18,432 dots**. Without merging, it requires 18,432 ImageControls. In one test with a 128 × 144 portrait, the following results were observed:
+
+| Measurement | Merge off | Merge on |
+| --- | ---: | ---: |
+| ImageControls | 18,432 | 8,607 |
+| `Show` time | About 0.32 s | About 0.16 s |
+
+This is **one image-specific measurement**, not a benchmark guarantee. Merge is typically more effective on images with long horizontal runs of the same color. Highly detailed images may benefit less.
+
+### Lua data size
+
+With compression enabled, repeated dots and repeated patterns from the row above are represented by shorter codes. The resulting size reduction depends on the image; pictures with large uniform or repeated areas generally compress better than highly varied pictures.
+
+For a meaningful comparison, check the **generated `.lua` file sizes** for your own images with Compress on and off. No universal compression ratio is implied by the measurements above, which concern ImageControls and display time.
+
+## Data format
+
+An uncompressed generated image has the following structure:
 
 ```lua
 return {
@@ -163,52 +180,47 @@ return {
 }
 ```
 
-Each character in `rows` is one dot. `"."` is transparent, and other characters are looked up in `palette`.
+Each character in `rows` represents one dot. `.` means transparent; other characters refer to colors in `palette`. Every image has its own palette.
 
-With **Compress** (the default), the file also has `encoding = "rle"`, and each row is written like this:
+With **Compress** enabled, the file also contains `encoding = "rle"`. Each row then uses the following codes:
 
-| In the row | Means |
+| Code | Meaning |
 | --- | --- |
-| a color key or `.` | one dot, as it is |
-| space + length + key | the key repeated *length* times |
-| two spaces + length | the same *length* dots as in the row above |
+| A color key or `.` | One dot, written directly |
+| Space + length + key | Repeat `key` for `length` dots |
+| Two spaces + length | Copy `length` dots from the same positions in the row immediately above |
 
-A length is one character: `A` = 4, `B` = 5, ... in the order of the color keys, then `.` = 95.
-For example, `" CA"` is `A` six times. Spaces never appear in uncompressed rows, so there is no mix-up,
-and all 91 colors can still be used.
+The run length is encoded as one character: `A` = 4, `B` = 5, and so on, up to `.` = 95, following the order of the encoding keys. For example, `" CA"` means six `A` dots. A compressed run starts at length four, because a three-character code would not save space for shorter runs.
 
-## Limits
-
-- **At most 91 colors per picture.** Each color is one character, and only 91 printable ASCII characters
-  are safe in a Lua string (`.`, `"`, `\` and space are not used). Pictures with more colors are reduced automatically.
-- **No half transparency.** A dot is either drawn or transparent (set the threshold in the converter).
-- **Large pictures need many ImageControls.** Keep merging on, and use `Grow` (and `step` if needed).
+Spaces do not occur in uncompressed rows, so they can identify RLE commands without conflicting with ordinary color keys.
 
 ## How it works
 
-1. **Resize.** If the image is larger than the limits, it is shrunk to the largest size that fits and keeps its shape.
-   Smooth shrinking uses a bicubic filter, stretched so that every pixel of the image is mixed in.
-   Colors are multiplied by alpha while resizing, so transparent pixels do not darken the edges.
-   Sharp shrinking takes the pixel nearest to the center of each new dot, so no new colors are made.
-   Images that already fit are never enlarged.
-2. **Colors.** If there are too many colors, they are grouped with k-means in the CIE Lab color space,
-   where distance is close to how different colors look. Each color is weighted by how many dots use it,
-   and the starting groups are chosen with k-means++, which spreads them out so that rare but distinct colors survive.
-   A fixed random seed makes the result the same every time.
-3. **Lua.** The most used color gets `A`, the next `B`, and so on.
-   With compression, each row is read from left to right: a run of 4 or more of the same dot, or 4 or more dots
-   that match the row above, is written as a 3-character code (whichever covers more dots).
+1. **Resize.** The converter shrinks images to fit the chosen maximum width and height without changing their aspect ratio. Smooth mode uses bicubic filtering, combining information from the source image; color channels are multiplied by alpha during resizing to reduce dark fringes at transparent edges. Sharp mode uses nearest-neighbor sampling, preserving individual pixel colors.
+2. **Reduce colors.** Images with more than 91 colors are quantized using k-means in **CIE Lab** color space. The algorithm weights each color by its frequency and chooses initial clusters using **k-means++**, helping retain colors that are visually distinct even if they are less common. A fixed random seed makes the result reproducible.
+3. **Encode Lua.** The most frequent color is assigned `A`, then the next most frequent color `B`, and so on. If compression is enabled, the encoder looks for runs of at least four identical dots or dots matching the row above, selecting the representation that covers more dots.
+4. **Render.** `PixelView` decodes the image and positions ImageControls. When merging is enabled, consecutive same-colored dots in a row are drawn as a single wider control.
 
-## Safety
+### Why 91 colors?
 
-The converter is one HTML file with no external libraries. Its `Content-Security-Policy` line tells the browser
-that the page may not load or send anything over the network, so your images stay on your computer.
-You can also save `index.html` and use it offline.
+Each color is stored as a **single character in a Lua string**. The format uses 91 printable ASCII characters as palette keys; space, `.`, `"`, and `\` are reserved or excluded. In particular, `.` represents transparency and spaces mark RLE commands. This design keeps the image data compact without requiring a separate multi-character identifier for each dot.
 
-## Note
+The limit applies to **each image independently**: different images can use different 91-color palettes.
 
-This is an unofficial, fan-made tool. It is not affiliated with or endorsed by HoYoverse.
-Miliastra Wonderland is a trademark of its owner.
+## Limitations
+
+- **Maximum 91 colors per image.** Images with more colors are reduced automatically, so gradients and fine color differences may change.
+- **Binary transparency only.** Each output dot is opaque or transparent, with the threshold set in the converter.
+- **Large images still require many UI controls.** Merge, Grow, and `step` help, but they do not remove the game's practical performance constraints.
+- **Merging changes the appearance of dotted gaps.** When `gap > 0`, horizontal merged runs fill the intervening spaces.
+
+## Privacy and safety
+
+The converter is a single HTML file with no external libraries. Its Content Security Policy restricts network access, so images are processed locally rather than uploaded. You can save `index.html` and use it offline.
+
+## Disclaimer
+
+This is an unofficial, fan-made tool. It is not affiliated with or endorsed by HoYoverse. Miliastra Wonderland is a trademark of its respective owner.
 
 ## License
 
